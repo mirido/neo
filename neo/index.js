@@ -193,7 +193,7 @@ var Oekaki = function (id) {
 		moving = false;
         var e = (event.touches) ? event.touches[0] : event;
 		prevX = e.clientX - 10;
-		prevY = e.clientY - 25;
+		prevY = e.clientY - 30;
 		push_history();
 	};
 
@@ -203,7 +203,7 @@ var Oekaki = function (id) {
 		if (dragging) {
             var e = (event.touches) ? event.touches[0] : event;
 			var x = e.clientX - 10;
-			var y = e.clientY - 25;
+			var y = e.clientY - 30;
 			line(prevX, prevY, x, y);
 
 			moving = true;
