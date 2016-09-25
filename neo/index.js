@@ -103,6 +103,7 @@ var Oekaki = function (id) {
     };
 
     this.submit = function(board) {
+		console.log("submit() called.");	// Test.
         deactivate();
 
         var dataURL = canvas.toDataURL('image/png');
