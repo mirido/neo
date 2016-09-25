@@ -36,6 +36,7 @@ var Oekaki = function (id) {
 	var moving = false;
 	var prevX, prevY;
 
+	/// 新しいインスタンスを初期化する。
 	var o$ = function(id) {
 		if (opener) {
 			return opener.document.getElementById(id);
@@ -43,15 +44,18 @@ var Oekaki = function (id) {
 		return null;
 	};
 
+	/// 線を描画する。
 	var line = function(fromX, fromY, toX, toY) {
 		var context = canvas.getContext("2d");
-		context.lineCap = "round";
-		context.strokeStyle = "#" + color;
-		context.lineWidth = penWidth;
+//		context.lineCap = "round";
+//		context.strokeStyle = "#" + color;
+//		context.lineWidth = penWidth;
+		context.fillStyle = "#" + color;
 
 		context.beginPath();
-		context.moveTo(fromX, fromY);
-		context.lineTo(toX, toY);
+//		context.moveTo(fromX, fromY);
+//		context.lineTo(toX, toY);
+		draw_line(fromX, fromY, toX, toY, context);
 		context.stroke();
 		context.closePath();
 	};
