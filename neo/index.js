@@ -55,7 +55,7 @@ var Oekaki = function (id) {
 		context.beginPath();
 //		context.moveTo(fromX, fromY);
 //		context.lineTo(toX, toY);
-		draw_line(fromX, fromY, toX, toY, context);
+		draw_line(fromX, fromY, toX, toY, context, Math.ceil(penWidth / 2));
 		context.stroke();
 		context.closePath();
 	};

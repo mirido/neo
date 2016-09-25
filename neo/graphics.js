@@ -1,9 +1,14 @@
 'use strict'
 
 /// ƒvƒŒƒ[ƒ“ƒnƒ€‚ÌƒAƒ‹ƒSƒŠƒYƒ€‚Å’¼ü‚ð•`‰æ‚·‚éB
-function draw_line(x0, y0, x1, y1, context)
+function draw_line(x0, y0, x1, y1, context, thickness)
 {
 	var tmp;
+
+	if (!thickness)
+		thickness = 1;
+	var r = thickness - 1;
+	var d = 2 * r + 1;
 
 	var bSteep = Math.abs(y1 - y0) > Math.abs(x1 - x0);
 	if (bSteep) {
@@ -33,10 +38,10 @@ function draw_line(x0, y0, x1, y1, context)
 	for (var x = x0; x <= x1; ++x) {
 		if (bSteep) {
 			// plot(y, x);
-			context.fillRect(y, x, 1, 1);
+			context.fillRect(y - r, x - r, d, d);
 		} else {
 			// plot(x, y);
-			context.fillRect(x, y, 1, 1);
+			context.fillRect(x - r, y - r, d, d);
 		}
 		error -= deltay;
 		if (error < 0) {
