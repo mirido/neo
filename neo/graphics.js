@@ -7,8 +7,8 @@ function draw_line(x0, y0, x1, y1, context, thickness)
 
 	if (!thickness)
 		thickness = 1;
-	var r = thickness - 1;
-	var d = 2 * r + 1;
+	var r = thickness / 2;
+	var d = thickness;
 
 	var bSteep = Math.abs(y1 - y0) > Math.abs(x1 - x0);
 	if (bSteep) {
