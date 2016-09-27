@@ -1,6 +1,6 @@
-'use strict'
+ï»¿'use strict'
 
-/// ƒvƒŒƒ[ƒ“ƒnƒ€‚ÌƒAƒ‹ƒSƒŠƒYƒ€‚Å’¼ü‚ğ•`‰æ‚·‚éB
+/// ãƒ—ãƒ¬ã‚¼ãƒ³ãƒãƒ ã®ã‚¢ãƒ«ã‚´ãƒªã‚ºãƒ ã§ç›´ç·šã‚’æç”»ã™ã‚‹ã€‚
 function draw_line(x0, y0, x1, y1, context, thickness)
 {
 	var tmp;
