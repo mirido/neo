@@ -1,4 +1,20 @@
 # PaintBBS NEO Next Generation (PNG)
+PaintBBS互換品をHTML5 + javascriptで書く企画。
+
+最新のコードはhtml5_experimentサブフォルダ内。
+使い方等は、experimentサブフォルダ内のREADME.md参照。
+
+当プロジェクトは、funige氏が開始した下記プロジェクトのリポジトリからのフォークで、外部（ネット上の掲示板）への投稿機能の基盤技術を間借りする形となっております…
+
++ PaintBBS NEO<BR>https://github.com/funige/neo
+
+finige氏オリジナルのPaintBBS互換アプリのコードはneoサブフォルダ内にあります。こちらのサブフォルダ内容は、今後finige氏の最新公開版を随時pullする予定。
+
+## 最新版スクリーンショット：
+
+![スクリーンショット](https://github.com/mirido/neo/blob/master/html5_experiment/_screenshot/app_image.png)
+
+以下は、旧まえがき。
 >PaitBBS.jar（しぃお絵描き）互換のお絵描き板をhtml5で作る企画です  
 >javaアプレットが絶滅する前に、javascriptで書き直しておきたい。
 >

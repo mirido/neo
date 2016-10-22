@@ -1,0 +1,127 @@
+<!-- Copyright (c) 2016, mirido
+All rights reserved. -->
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>PaintBBS NEO Next Generation</title>
+
+<!-- Style -->
+<link href="./default_style.css" rel="stylesheet" type="text/css">
+<link href="./oebi_pane.css" rel="stylesheet" type="text/css">
+
+<!-- Script -->
+<script type="text/javascript" src="_doc/utest.js"></script>
+<script type="text/javascript" src="dbg-util.js"></script>
+<script type="text/javascript" src="imaging.js"></script>
+<script type="text/javascript" src="geometry.js"></script>
+<script type="text/javascript" src="graphics.js"></script>
+<script type="text/javascript" src="ui-util.js"></script>
+<script type="text/javascript" src="ui-element.js"></script>
+<script type="text/javascript" src="picture-canvas.js"></script>
+<script type="text/javascript" src="oebi-tool.js"></script>
+<script type="text/javascript" src="tool-palette.js"></script>
+<script type="text/javascript" src="submit.js"></script>
+<script type="text/javascript" src="index.js"></script>
+</head>
+<body id="samplePage">
+  <p>
+    TOP
+  </p>
+
+  <div class="boxContainer">
+    <div class="box">
+      <!-- 左側サブペイン BGN -->
+
+      <!-- [窓] -->
+      <button id="undo">窓</button><BR>
+
+      <!-- [やり直し] | [元に戻す] | [塗り潰し] -->
+      <div align=right>
+        <button id="redo">やり直し</button>
+        <button id="undo">元に戻す</button>
+        <button id="paint" style="margin: 0px 10px 8px 0px;">塗り潰し</button>
+      </div>
+
+      <!-- キャンバス -->
+      <div id="viewport" class="boxContainer">
+        <canvas id="canvas_0" width=400px height=400px style="z-index: 0;"></canvas>
+        <canvas id="canvas_1" width=400px height=400px style="z-index: 1;"></canvas>
+        <canvas id="canvas_2" width=400px height=400px style="z-index: 2;"></canvas>
+      </div>
+
+      <!-- [投稿] | 表題 -->
+      <input id="m_submit" type="button" value="投稿"
+             onclick="submit(document.getElementById('target').value);">
+      (C) PaintBBS NEO Next Generation V0.02 alpha
+      <!-- 左側サブペイン END　-->
+    </div>
+    <div class="box">
+      <!-- 右側サブペイン BGN -->
+
+      <!-- 鉛筆	水彩	テキスト -->
+      <!-- トーン	ぼかし	覆い焼き	焼き込み -->
+      <!-- 四角	線四角	楕円	線楕円 -->
+      <!-- コピー	レイヤ結合	角取り	左右反転	上下反転	傾け -->
+      <!-- 消しペン	消し四角	全消し -->
+      <!-- 手書き	直線	BZ曲線 -->
+      <!-- 通常	マスク	逆マスク	加算	逆加算 -->
+      <!-- 白 黒 -->
+      <!-- 灰 茶 -->
+      <!-- 紫 紅 -->
+      <!-- 青 ピンク -->
+      <!-- 黄 水色 -->
+      <!-- 緑 橙 -->
+      <!-- 肌1 肌2 -->
+      <!-- R -->
+      <!-- G -->
+      <!-- B -->
+      <!-- A -->
+      <!-- 線幅 1px～30 px -->
+      <!-- 1 px黒/5 px白/10 px白 -->
+      <!-- layer1/layer0 -->
+      <canvas id="tool_palette" width=50 height=443 style="padding: 0px 20px 0px 0px;"></canvas>
+
+      <!-- 右側サブペイン END -->
+    </div>
+  </div>
+  <p>
+    投稿先：
+    <select id="target">
+      <option value="jun.2chan.net/oe">お絵sql</option>
+      <option value="zip.2chan.net/p">お絵かき</option>
+      <option value="nov.2chan.net/q">落書き</option>
+      <option value="cgi.2chan.net/u">落書き裏</option>
+    </select>
+    <!--
+    線の太さ：
+    <select id="selThickness10">
+      <option value="0">0</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+    </select>
+    <select id="selThickness01">
+      <option value="0">0</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+    </select>
+    pixel
+  -->
+  </p>
+  <p>
+    ↓↓↓レイヤー合成結果 <small>（投稿ボタン押下か、スポイトツールで更新）</small><BR>
+    <canvas id="joint_canvas"></canvas>
+  </p>
+  <p>
+    BOTTOM
+  </p>
+</body>
+</html>
