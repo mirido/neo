@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2016, mirido
+// Copyright (c) 2016, mirido
 // All rights reserved.
 
 'use strict'

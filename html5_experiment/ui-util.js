@@ -128,7 +128,7 @@ function get_components_from_RGBx(color)
 {
   let colors = [];
   if (color.match(/^#/)) {
-    let hexColors = color.match(/\d\d/g);
+    let hexColors = color.match(/[\da-f][\da-f]/gi);
     for (let i = 0; i < hexColors.length; ++i) {
       colors[i] = parseInt(hexColors[i], 16);
     }
@@ -472,23 +472,25 @@ const textColor = 'rgb(90,87,129)';
 const textCharWidth = 12;
 
 /// アイコンを描画する。
-function draw_icon_face_wrp(iconBounds, bActive, e)
+function draw_icon_face_ex(iconBounds, bActive, context)
 {
-  let tool_canvas = e.m_sender.getToolPaletteCanvas();
-  let context = tool_canvas.getContext('2d');
-
   let colors = (bActive) ? activeIconColors : inactiveIconColors;
   draw_icon_face(iconBounds, colors, context);
 }
 
 /// アイコンを描画する。
-function draw_icon_wrp(iconBounds, text, iconGraphicFunc, bActive, e)
+function draw_icon_face_wrp(iconBounds, bActive, e)
 {
-  // ボタン面描画
-  draw_icon_face_wrp(iconBounds, bActive, e);
-
   let tool_canvas = e.m_sender.getToolPaletteCanvas();
   let context = tool_canvas.getContext('2d');
+  draw_icon_face_ex(iconBounds, bActive, context);
+}
+
+/// アイコンを描画する。
+function draw_icon_ex(iconBounds, text, iconGraphicFunc, bActive, context)
+{
+  // ボタン面描画
+  draw_icon_face_ex(iconBounds, bActive, context);
 
   // アイコンのグラフィック描画
   if (iconGraphicFunc) {
@@ -503,6 +505,14 @@ function draw_icon_wrp(iconBounds, text, iconGraphicFunc, bActive, e)
   let textMaxWidth = textCharWidth * nchs;
   context.fillStyle = textColor;
   context.fillText(text, sx + 2, sy + h - 3, textMaxWidth);
+}
+
+/// アイコンを描画する。
+function draw_icon_wrp(iconBounds, text, iconGraphicFunc, bActive, e)
+{
+  let tool_canvas = e.m_sender.getToolPaletteCanvas();
+  let context = tool_canvas.getContext('2d');
+  draw_icon_ex(iconBounds, text, iconGraphicFunc, bActive, context);
 }
 
 //
