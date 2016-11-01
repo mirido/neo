@@ -59,6 +59,7 @@ function submit(board)
   deactivate();
 
   let joint_canvas = document.getElementById("joint_canvas");
+  g_pictureCanvas.raiseLayerFixRequest();
   g_pictureCanvas.getJointImage(joint_canvas);
 
   var dataURL = joint_canvas.toDataURL('image/png');

@@ -2,7 +2,7 @@
 PaintBBS互換品をHTML5 + javascriptで書く企画。
 
 最新のコードはhtml5_experimentサブフォルダ内。
-使い方等は、experimentサブフォルダ内のREADME.md参照。
+使い方等は、[html5_experimentサブフォルダ内のREADME.md](https://github.com/mirido/neo/blob/master/html5_experiment/README.md)参照。
 
 当プロジェクトは、funige氏が開始した下記プロジェクトのリポジトリからのフォークで、外部（ネット上の掲示板）への投稿機能の基盤技術を間借りする形となっております…
 
