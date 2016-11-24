@@ -19,7 +19,8 @@ Neo.Painter.prototype.current = 0;
 //Temp Canvas Info
 Neo.Painter.prototype.tempCanvas;
 Neo.Painter.prototype.tempCanvasCtx;
-Neo.Painter.prototype.clipboard;
+Neo.Painter.prototype.tempX = 0;
+Neo.Painter.prototype.tempY = 0;
 
 //Destination Canvas for display
 Neo.Painter.prototype.destCanvas;
@@ -56,7 +57,6 @@ Neo.Painter.prototype.maskColor = "#000000";
 Neo.Painter.prototype._currentColor = [];
 Neo.Painter.prototype._currentMask = [];
 
-
 Neo.Painter.LINETYPE_NONE = 0;
 Neo.Painter.LINETYPE_PEN = 1;
 Neo.Painter.LINETYPE_ERASER = 2;
@@ -71,14 +71,17 @@ Neo.Painter.MASKTYPE_REVERSE = 2;
 Neo.Painter.TOOLTYPE_NONE = 0;
 Neo.Painter.TOOLTYPE_PEN = 1;
 Neo.Painter.TOOLTYPE_ERASER = 2;
-Neo.Painter.TOOLTYPE_FILL = 3;
-Neo.Painter.TOOLTYPE_MASK = 4;
-Neo.Painter.TOOLTYPE_ERASEALL = 5;
-Neo.Painter.TOOLTYPE_ERASERECT = 6;
-Neo.Painter.TOOLTYPE_COPY = 7;
-Neo.Painter.TOOLTYPE_MERGE = 8;
-Neo.Painter.TOOLTYPE_FLIP_H = 9;
-Neo.Painter.TOOLTYPE_FLIP_V = 10;
+Neo.Painter.TOOLTYPE_HAND = 3;
+Neo.Painter.TOOLTYPE_SLIDER = 4;
+Neo.Painter.TOOLTYPE_FILL = 5;
+Neo.Painter.TOOLTYPE_MASK = 6;
+Neo.Painter.TOOLTYPE_ERASEALL = 7;
+Neo.Painter.TOOLTYPE_ERASERECT = 8;
+Neo.Painter.TOOLTYPE_COPY = 9;
+Neo.Painter.TOOLTYPE_PASTE = 10;
+Neo.Painter.TOOLTYPE_MERGE = 11;
+Neo.Painter.TOOLTYPE_FLIP_H = 12;
+Neo.Painter.TOOLTYPE_FLIP_V = 13;
 
 
 Neo.Painter.prototype.build = function(div, width, height)
@@ -94,11 +97,14 @@ Neo.Painter.prototype.build = function(div, width, height)
 };
 
 Neo.Painter.prototype.setTool = function(tool) {
+    if (this.tool && this.tool.saveStates) this.tool.saveStates();
+
     if (this.tool && this.tool.kill) {
         this.tool.kill();
     }
     this.tool = tool;
     tool.init();
+    if (this.tool && this.tool.loadStates) this.tool.loadStates();
 };
 
 Neo.Painter.prototype.pushTool = function(tool) {
@@ -119,14 +125,16 @@ Neo.Painter.prototype.setToolByType = function(toolType) {
     switch (parseInt(toolType)) {
     case Neo.Painter.TOOLTYPE_PEN:       this.setTool(new Neo.PenTool()); break;
     case Neo.Painter.TOOLTYPE_ERASER:    this.setTool(new Neo.EraserTool()); break;
+    case Neo.Painter.TOOLTYPE_HAND:      this.setTool(new Neo.HandTool()); break;
     case Neo.Painter.TOOLTYPE_FILL:      this.setTool(new Neo.FillTool()); break;
     case Neo.Painter.TOOLTYPE_ERASEALL:  this.setTool(new Neo.EraseAllTool()); break;
     case Neo.Painter.TOOLTYPE_ERASERECT: this.setTool(new Neo.EraseRectTool()); break;
 
-    case Neo.Painter.TOOLTYPE_COPY: this.setTool(new Neo.CopyTool()); break;
-    case Neo.Painter.TOOLTYPE_MERGE: this.setTool(new Neo.MergeTool()); break;
-    case Neo.Painter.TOOLTYPE_FLIP_H: this.setTool(new Neo.FlipHTool()); break;
-    case Neo.Painter.TOOLTYPE_FLIP_V: this.setTool(new Neo.FlipVTool()); break;
+    case Neo.Painter.TOOLTYPE_COPY:      this.setTool(new Neo.CopyTool()); break;
+    case Neo.Painter.TOOLTYPE_PASTE:     this.setTool(new Neo.PasteTool()); break;
+    case Neo.Painter.TOOLTYPE_MERGE:     this.setTool(new Neo.MergeTool()); break;
+    case Neo.Painter.TOOLTYPE_FLIP_H:    this.setTool(new Neo.FlipHTool()); break;
+    case Neo.Painter.TOOLTYPE_FLIP_V:    this.setTool(new Neo.FlipVTool()); break;
 
     default:
         console.log("unknown toolType " + toolType);
@@ -135,6 +143,8 @@ Neo.Painter.prototype.setToolByType = function(toolType) {
 };
 
 Neo.Painter.prototype._initCanvas = function(div, width, height) {
+    width = parseInt(width);
+    height = parseInt(height);
     var destWidth = parseInt(div.clientWidth);
     var destHeight = parseInt(div.clientHeight);
     this.destWidth = width;
@@ -181,10 +191,11 @@ Neo.Painter.prototype._initCanvas = function(div, width, height) {
     container.onmousemove = function(e) {ref._mouseMoveHandler(e)};
     container.onmouseup = function(e) {ref._mouseUpHandler(e)};
     container.onmouseover = function(e) {ref._rollOverHandler(e)};
-    container.onmouseout = function(e) {ref._rollOutHandler(e)};
-    container.onkeydown = function(e) {ref._keyDownHandler(e)};
+    document.onmouseout = function(e) {ref._rollOutHandler(e)};
 
+    document.onkeydown = function(e) {ref._keyDownHandler(e)};
     document.onkeyup = function(e) {ref._keyUpHandler(e)};
+
     window.onbeforeunload = function(e) {ref._beforeUnloadHandler(e)};
 
     this.updateDestCanvas(0, 0, this.canvasWidth, this.canvasHeight);
@@ -240,16 +251,35 @@ Neo.Painter.prototype._keyDownHandler = function(e) {
     this.isShiftDown = e.shiftKey;
     this.isCtrlDown = e.ctrlKey;
     this.isAltDown = e.altKey;
+    if (e.keyCode == 32) this.isSpaceDown = true;
+
+    if (!this.isShiftDown && this.isCtrlDown) {
+        if (!this.isAltDown) {
+            if (e.keyCode == 90 || e.keyCode == 85) this.undo(); //Ctrl+Z,Ctrl.U
+            if (e.keyCode == 89) this.redo(); //Ctrl+Y
+        } else {
+            if (e.keyCode == 90) this.redo(); // Ctrl+Alt+Z
+        }
+    }
+
+    if (!this.isShiftDown && !this.isCtrlDown && !this.isAltDown) {
+        if (e.keyCode == 107) new Neo.ZoomPlusCommand(this).execute(); // +
+        if (e.keyCode == 109) new Neo.ZoomMinusCommand(this).execute(); // -
+    }
 
     if (this.tool.keyDownHandler) {
         this.tool.keyDownHandler(oe);
     }
+
+    // スペース・Shift+スペースででスクロールしないように
+    if (e.keyCode == 32) e.preventDefault();
 };
 
 Neo.Painter.prototype._keyUpHandler = function(e) {
     this.isShiftDown = e.shiftKey;
     this.isCtrlDown = e.ctrlKey;
     this.isAltDown = e.altKey;
+    if (e.keyCode == 32) this.isSpaceDown = false;
 
     if (this.tool.keyUpHandler) {
         this.tool.keyUpHandler(oe);
@@ -269,11 +299,22 @@ Neo.Painter.prototype._rollOutHandler = function(e) {
 };
 
 Neo.Painter.prototype._mouseDownHandler = function(e) {
-	if (e.button == 2 || e.ctrlKey || e.altKey) {
-		this.isMouseDownRight = true;
-	} else {
-		this.isMouseDown = true;
-	}	
+    if (e.button == 2) {
+        this.isMouseDownRight = true;
+
+    } else {
+        if (!e.shiftKey && e.ctrlKey && e.altKey) {
+            console.log("sizetool");
+            this.isMouseDown = true;
+
+        } else {
+            if (e.ctrlKey || e.altKey) {
+                this.isMouseDownRight = true;
+            } else {
+                this.isMouseDown = true;
+            }
+        }
+    }
 	
 	this._updateMousePosition(e);
 	this.prevMouseX = this.mouseX;
@@ -281,7 +322,7 @@ Neo.Painter.prototype._mouseDownHandler = function(e) {
 
     if (this.isMouseDownRight) {
         this.isMouseDownRight = false;
-        if (!e.target['data-ui']) {
+        if (!this.isWidget(e.target)) {
             this.pickColor(this.mouseX, this.mouseY);
             return;
         }
@@ -289,15 +330,23 @@ Neo.Painter.prototype._mouseDownHandler = function(e) {
 
     //console.log(e.target.id || "??");
 
-    if (e.target == document.getElementById("scrollH") ||
-        e.target == document.getElementById("scrollV")) {
+    if (e.target['data-bar']) {
         this.pushTool(new Neo.HandTool());
+
+    } else if (this.isSpaceDown) {
+        this.pushTool(new Neo.HandTool());
+        this.tool.reverse = true;
 
     } else if (e.target['data-slider']) {
         this.pushTool(new Neo.SliderTool());
         this.tool.target = e.target;
 
-    } else if (e.target['data-ui']) {
+    } else if (e.ctrlKey && e.altKey && !e.shiftKey) {
+        this.pushTool(new Neo.SliderTool());
+        this.tool.target = Neo.sliders[Neo.SLIDERTYPE_SIZE].element;
+        this.tool.alt = true;
+
+    } else if (this.isWidget(e.target)) {
         this.isMouseDown = false;
         this.pushTool(new Neo.DummyTool());
     }
@@ -477,12 +526,12 @@ Neo.UndoItem.prototype.height;
 -------------------------------------------------------------------------
 */
 
-Neo.Painter.prototype.setZoom = function(val){
-	this.zoom = val;
+Neo.Painter.prototype.setZoom = function(value) {
+	this.zoom = value;
 
     var container = document.getElementById("container");
-    var width = this.canvasWidth * val;
-    var height = this.canvasHeight * val;
+    var width = this.canvasWidth * this.zoom;
+    var height = this.canvasHeight * this.zoom;
     if (width > container.clientWidth - 100) width = container.clientWidth - 100;
     if (height > container.clientHeight - 130) height = container.clientHeight - 130;
     this.destWidth = width;
@@ -490,9 +539,9 @@ Neo.Painter.prototype.setZoom = function(val){
 
 	this.updateDestCanvas(0, 0, this.canvasWidth, this.canvasHeight, false);
 	this.setZoomPosition(this.zoomX, this.zoomY);
-}
+};
 
-Neo.Painter.prototype.setZoomPosition = function(x,y){
+Neo.Painter.prototype.setZoomPosition = function(x, y) {
 	var minx = (this.destCanvas.width / this.zoom) * 0.5;
 	var maxx = this.canvasWidth - minx;
 	var miny = (this.destCanvas.height / this.zoom) * 0.5;
@@ -507,7 +556,15 @@ Neo.Painter.prototype.setZoomPosition = function(x,y){
 	this.zoomX = x;
 	this.zoomY = y;
 	this.updateDestCanvas(0,0,this.canvasWidth,this.canvasHeight,false);
-}
+    
+    this.scrollBarX = (maxx == minx) ? 0 : (x - minx) / (maxx - minx);
+    this.scrollBarY = (maxy == miny) ? 0 : (y - miny) / (maxy - miny);
+    this.scrollWidth = maxx - minx;
+    this.scrollHeight = maxy - miny;
+
+    if (Neo.scrollH) Neo.scrollH.update(this);
+    if (Neo.scrollV) Neo.scrollV.update(this);
+};
 
 
 /*
@@ -593,10 +650,10 @@ Neo.Painter.prototype.updateDestCanvas = function(x, y, width, height, useTemp) 
                                      x, y, width, height);
     }
 	if (useTemp) {
-		this.destCanvasCtx.globalAlpha = this.alpha;
+		this.destCanvasCtx.globalAlpha = 1.0; //this.alpha;
 		this.destCanvasCtx.drawImage(this.tempCanvas, 
                                      x, y, width, height, 
-                                     x, y, width, height);
+                                     x + this.tempX, y + this.tempY, width, height);
 	}
 	this.destCanvasCtx.restore();
 	
@@ -888,8 +945,22 @@ Neo.Painter.prototype.eraseRect = function(ctx, x, y, width, height) {
     var buf32 = new Uint32Array(imageData.data.buffer);
     var buf8 = new Uint8ClampedArray(imageData.data.buffer);
 
-    for (var i = 0; i < width * height; i++) {
-        buf32[i] = 0;
+    var index = 0;
+
+    var a = 1.0 - this.alpha;
+    if (a != 0) {
+        a = Math.ceil(2.0 / a);
+    } else {
+        a = 255;
+    }
+
+    for (var j = 0; j < height; j++) {
+        for (var i = 0; i < width; i++) {
+            if (!this.isMasked(buf8, index)) {
+                buf8[index + 3] -= a;
+            }
+            index += 4;
+        }
     }
     imageData.data.set(buf8);
     ctx.putImageData(imageData, x, y);
@@ -993,29 +1064,6 @@ Neo.Painter.prototype.merge = function(ctx, x, y, width, height) {
         imageData[i].data.set(buf8[i]);
         this.canvasCtx[i].putImageData(imageData[i], x, y);
     }
-};
-
-Neo.Painter.prototype.__drawLine = function(ctx, x0, y0, x1, y1) {
-    // 線がボケる奴
-	ctx.beginPath();
-	ctx.moveTo(x0,y0);
-	ctx.lineTo(x1,y1);
-	ctx.stroke();
-};
-
-Neo.Painter.prototype.__drawRect = function(ctx, x, y, w, h, isStroke, isFill) {
-	ctx.beginPath();
-	ctx.moveTo(x,y);
-	ctx.lineTo(x+w,y);
-	ctx.lineTo(x+w,y+h);
-	ctx.lineTo(x,y+h);
-	ctx.closePath();
-	
-	if(isFill)
-		ctx.fill();
-	
-	if(isStroke)
-		ctx.stroke();
 };
 
 Neo.Painter.prototype.__drawEllipse = function(ctx, x, y, w, h, isStroke, isFill) {
@@ -1144,6 +1192,26 @@ Neo.Painter.prototype.fill = function(x, y, ctx) {
 	this.updateDestCanvas(0, 0, this.canvasWidth, this.canvasHeight);
 };
 
+Neo.Painter.prototype.copy = function(x, y, width, height) {
+    this.tempX = 0;
+    this.tempY = 0;
+	this.tempCanvasCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+    this.tempCanvasCtx.drawImage(this.canvas[this.current],
+                                 x, y, width, height,
+                                 x, y, width, height);
+};
+
+Neo.Painter.prototype.paste = function(x, y, width, height) {
+    this.canvasCtx[this.current].clearRect(x + this.tempX, y + this.tempY, width, height);
+    this.canvasCtx[this.current].drawImage(this.tempCanvas,
+                                 x, y, width, height,
+                                 x + this.tempX, y + this.tempY, width, height);
+
+    this.tempX = 0;
+    this.tempY = 0;
+	this.tempCanvasCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+};
+
 Neo.Painter.prototype.getDestCanvasMousePosition = function(mx, my, isClip) {
     var mx = Math.round(mx);
     var my = Math.round(my);
@@ -1157,3 +1225,18 @@ Neo.Painter.prototype.getDestCanvasMousePosition = function(mx, my, isClip) {
     return {x:x, y:y};
 };
 
+Neo.Painter.prototype.isWidget = function(element) {
+    while (1) {
+        if (element == null ||
+            element.id == "canvas" || 
+            element.id == "container") break;
+
+        if (element.id == "tools" ||
+            element.className == "buttonOn" || 
+            element.className == "buttonOff") {
+            return true;
+        }
+        element = element.parentNode;
+    }
+    return  false;
+};

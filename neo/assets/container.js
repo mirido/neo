@@ -6,14 +6,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
 var Neo = function() {};
 
-Neo.version = "0.4.5";
+Neo.version = "0.5.0";
 
 Neo.painter;
 Neo.fullScreen = false;
 
 Neo.config = {
-    width: 300,
-    height: 300,
+    image_width: 300,
+    image_height: 300,
+   
+    color_bk: "#ccccff",
 
     colors: [ 
         "#000000", "#FFFFFF",
@@ -23,15 +25,17 @@ Neo.config = {
         "#25C7C9", "#E7E58D",
         "#E7962D", "#99CB7B",
         "#FCECE2", "#F9DDCF"
-    ],
+    ]
 };
 
-Neo.SLIDERTYPE_NONE = 0;
-Neo.SLIDERTYPE_RED = 1;
-Neo.SLIDERTYPE_GREEN = 2;
-Neo.SLIDERTYPE_BLUE = 3;
-Neo.SLIDERTYPE_ALPHA = 4;
-Neo.SLIDERTYPE_SIZE = 5;
+Neo.reservePen = {};
+Neo.reserveEraser = {};
+
+Neo.SLIDERTYPE_RED = 0;
+Neo.SLIDERTYPE_GREEN = 1;
+Neo.SLIDERTYPE_BLUE = 2;
+Neo.SLIDERTYPE_ALPHA = 3;
+Neo.SLIDERTYPE_SIZE = 4;
 
 document.neo = Neo;
 
@@ -63,6 +67,7 @@ Neo.init2 = function() {
     Neo.canvas.oncontextmenu = function() {return false;};
 //  Neo.painter.onUpdateCanvas = null;
 
+    Neo.initSkin();
     Neo.initComponents();
     Neo.initButtons();
 
@@ -73,6 +78,7 @@ Neo.init2 = function() {
 
 Neo.initConfig = function(applet) {
     if (applet) {
+        var name = applet.attributes.name.value || "neo";
         var appletWidth = applet.attributes.width;
         var appletHeight = applet.attributes.height;
         if (appletWidth) Neo.config.applet_width = parseInt(appletWidth.value);
@@ -81,12 +87,29 @@ Neo.initConfig = function(applet) {
         var params = applet.getElementsByTagName('param');
         for (var i = 0; i < params.length; i++) {
             var p = params[i];
+            Neo.config[p.name] = p.value;
+
             if (p.name == "image_width") Neo.config.width = parseInt(p.value);
             if (p.name == "image_height") Neo.config.height = parseInt(p.value);
-            if (p.name == "url_save") Neo.config.url_save = p.value;
-            if (p.name == "url_exit") Neo.config.url_exit = p.value;
-            if (p.name == "send_header") Neo.config.send_header = p.value;
         }
+        applet.outerHTML = "";
+        document[name] = Neo;
+    }
+
+    Neo.config.reserves = [
+        { size:1, color:"#000000", alpha:1.0, tool:Neo.Painter.TOOLTYPE_PEN },
+        { size:5, color:"#FFFFFF", alpha:1.0, tool:Neo.Painter.TOOLTYPE_ERASER },
+        { size:10, color:"#FFFFFF", alpha:1.0, tool:Neo.Painter.TOOLTYPE_ERASER },
+    ];
+
+    Neo.reservePen = Neo.clone(Neo.config.reserves[0]);
+    Neo.reserveEraser = Neo.clone(Neo.config.reserves[1]);
+};
+
+Neo.initSkin = function() {
+    var sheet = document.styleSheets[0];
+    if (Neo.config.color_bk) {
+        sheet.addRule(".NEO #container", "background-color: " + Neo.config.color_bk);
     }
 };
 
@@ -103,9 +126,9 @@ Neo.initComponents = function() {
         container.style.borderColor = 'transparent';
     }, false);
 
-    //画面外の何もないところををクリックして描画されてしまうのをちょっと防ぐ
-    document.getElementById("toolSet")['data-ui'] = true;
-    document.getElementById("toolPad")['data-ui'] = true;
+    // 埋め込み先のページの他の要素は選択不可にしておく
+    document.styleSheets[0].addRule("*", "user-select:none;");
+    document.styleSheets[0].addRule("*", "-webkit-user-select:none;");
 }
 
 Neo.initButtons = function() {
@@ -160,7 +183,14 @@ Neo.initButtons = function() {
     Neo.sliders[Neo.SLIDERTYPE_SIZE] = new Neo.SizeSlider().init(
         "sliderSize", {type:Neo.SLIDERTYPE_SIZE});
 
+    // reserveControl
+    for (var i = 1; i <= 3; i++) {
+        new Neo.ReserveControl().init("reserve" + i, {index:i});    
+    };
+
     new Neo.LayerControl().init("layerControl");
+    new Neo.ScrollBarButton().init("scrollH");
+    new Neo.ScrollBarButton().init("scrollV");
 };
 
 Neo.start = function() {
@@ -175,25 +205,39 @@ Neo.start = function() {
 
 /*
 -----------------------------------------------------------------------
-色が変わった時の対応
+UIの更新
 -----------------------------------------------------------------------
 */
 
-Neo.updateUIColor = function(updateSlider, updateColorTip) {
-    var color = Neo.painter.foregroundColor;
-
-    Neo.sliders[Neo.SLIDERTYPE_SIZE].update();
-    Neo.penTip.update();
-    
-    if (updateSlider) {
-        Neo.sliders[Neo.SLIDERTYPE_RED].update();
-        Neo.sliders[Neo.SLIDERTYPE_GREEN].update();
-        Neo.sliders[Neo.SLIDERTYPE_BLUE].update();
+Neo.updateUI = function() {
+    var current = Neo.painter.tool.getToolButton();
+    for (var i = 0; i < Neo.toolButtons.length; i++) {
+        var toolTip = Neo.toolButtons[i];
+        toolTip.setSelected((current == toolTip) ? true : false);
     }
 
+    Neo.updateUIColor(true, false);
+}
+
+Neo.updateUIColor = function(updateSlider, updateColorTip) {
+    for (var i = 0; i < Neo.toolButtons.length; i++) {
+        var toolTip = Neo.toolButtons[i];
+        toolTip.update();
+    }
+
+    if (updateSlider) {
+        for (var i = 0; i < Neo.sliders.length; i++) {
+            var slider = Neo.sliders[i];
+            slider.update();
+        }
+    }
+
+    // パレットを変更するとき
     if (updateColorTip) {
         var colorTip = Neo.ColorTip.getCurrent();
-        if (colorTip) colorTip.setColor(color);
+        if (colorTip) {
+            colorTip.setColor(Neo.painter.foregroundColor);
+        }
     }
 };
 
@@ -248,6 +292,14 @@ Neo.resizeCanvas = function() {
 -----------------------------------------------------------------------
 */
 
+Neo.clone = function(src) {
+    var dst = {};
+    for (var k in src) {
+        dst[k] = src[k];
+    }
+    return dst;
+};
+
 Neo.getSizeString = function(len) {
     var result = String(len);
     while (result.length < 8) {
@@ -286,6 +338,27 @@ Neo.submit = function(board, blob) {
 
 /*
 -----------------------------------------------------------------------
+LiveConnect
+-----------------------------------------------------------------------
+*/
+
+Neo.getColors = function() {
+    console.log("getColors");
+    return Neo.config.colors.join('\n');
+};
+
+Neo.setColors = function(colors) {
+    console.log("setColors");
+    var array = colors.split('\n');
+    for (var i = 0; i < 14; i++) {
+        var color = array[i];
+        Neo.config.colors[i] = color;
+        Neo.colorTips[i].setColor(color);
+    }
+};
+
+/*
+-----------------------------------------------------------------------
 DOMツリーの作成
 -----------------------------------------------------------------------
 */
@@ -310,8 +383,8 @@ Neo.createContainer = function(applet) {
                    </div>
                     <div id="painter">
                         <div id="canvas">
-                            <div id="scrollH" data-ui=true></div>
-                            <div id="scrollV" data-ui=true></div>
+                            <div id="scrollH"></div>
+                            <div id="scrollV"></div>
                             <div id="zoomPlusWrapper">
                                 <div id="zoomPlus">+</div>
                             </div>
@@ -347,7 +420,11 @@ Neo.createContainer = function(applet) {
                             <div id="sliderAlpha"></div>
                             <div id="sliderSize"></div>
 
-                            <div class="reserveControl" style="margin-top:4px; display: none;"></div>
+                            <div class="reserveControl" style="margin-top:4px;">
+                                <div id="reserve1"></div>
+                                <div id="reserve2"></div>
+                                <div id="reserve3"></div>
+                            </div>
                             <div id="layerControl" style="margin-top:6px;"></div>
 
                             <div id="toolPad" style="height:20px;"></div>
@@ -375,7 +452,6 @@ Neo.createContainer = function(applet) {
     parent.appendChild(neo);
     parent.insertBefore(neo, applet);
 
-    applet.style.display = "none";
-//  document.getElementById("container").style.visibility = "visible";
+//  applet.style.display = "none";
 };
 
