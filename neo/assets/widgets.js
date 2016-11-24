@@ -299,8 +299,9 @@ Neo.eraserTip;
 Neo.EraserTip = function() {};
 Neo.EraserTip.prototype = new Neo.ToolTip();
 
-Neo.EraserTip.toolStrings = ["消しペン", "全消し"];
+Neo.EraserTip.toolStrings = ["消しペン", "消し四角", "全消し"];
 Neo.EraserTip.tools = [Neo.Painter.TOOLTYPE_ERASER, 
+                       Neo.Painter.TOOLTYPE_ERASERECT,
                        Neo.Painter.TOOLTYPE_ERASEALL];
 
 Neo.EraserTip.prototype.init  = function(name, params) {
@@ -314,7 +315,7 @@ Neo.EraserTip.prototype._mouseDownHandler = function(e) {
     this.isMouseDown = true;
     if (this.selected == false) {
         for (var i = 0; i < Neo.toolButtons.length; i++) {
-            var toolTip = Neo.toolButtons[i]
+            var toolTip = Neo.toolButtons[i];
             toolTip.setSelected(this == toolTip) ? true : false;
         }
 
@@ -346,10 +347,65 @@ Neo.EraserTip.prototype.draw = function() {
     var ctx = this.canvas.getContext("2d");
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     var img = new Image();
-    img.src = "assets/images/tooltip-eraser.png";
+    
+    /* base64 tooltip-eraser.png*/
+    img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAATCAYAAADWOo4fAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QAAAAAAAD5Q7t/AAAACXBIWXMAAAsSAAALEgHS3X78AAABQElEQVRIx+1WQY7CMAwcI37Cad+yXOgH4Gu8gAt9CtrDirfMHjZJbbcktVSpQnROSeMkY3vsFHhzSG3xfLpz/JVmG0mIqDkIMcc6+7Kejx6fdb0dq7w09rVFkrjejrMOunQ9vg7f/5QEIAd6E1Eo38WF8fF7n8sdALCrLerIzoFI4sI0Vtv1SYZ8CVbeF7tzF7JugIkVkxOauc6CIe8842S+XmMfsq7TN9LRTngZmTmVD4SrnzYaGYhFoxCWgajXuMjYGTuJ3dlwIBIN3U0cUVqLXCs5E7YeVsvAYJul5HWeLUhL3EpstQwooqoOTEHDOebpMn7ngkUsg3RotU8X1MkuVDrYohkIupC0YArX6T+PfX3kcbQLNV/iCKi6EB3xqXdAZ0JKthZ8B0QEl673NIEX/0I/z36Rf6ENGzZ8EP4A8Lp+9e9VWC4AAAAASUVORK5CYII=";
+
     img.onload = function() {
         ctx.drawImage(img, 0, 0);
     };
+};
+
+/*
+-------------------------------------------------------------------------
+	CopyTip
+-------------------------------------------------------------------------
+*/
+
+Neo.copyTip;
+
+Neo.CopyTip = function() {};
+Neo.CopyTip.prototype = new Neo.ToolTip();
+
+Neo.CopyTip.toolStrings = ["ﾚｲﾔ結合", "左右反転", "上下反転"];
+Neo.CopyTip.tools = [Neo.Painter.TOOLTYPE_MERGE,
+                     Neo.Painter.TOOLTYPE_FLIP_H,
+                     Neo.Painter.TOOLTYPE_FLIP_V];
+
+Neo.CopyTip.prototype.init = function(name, params) {
+    Neo.ToolTip.prototype.init.call(this, name, params);
+    return this;
+};
+
+Neo.CopyTip.prototype._mouseDownHandler = function(e) {
+    this.isMouseDown = true;
+    if (this.selected == false) {
+        for (var i = 0; i < Neo.toolButtons.length; i++) {
+            var toolTip = Neo.toolButtons[i];
+            toolTip.setSelected(this == toolTip) ? true : false;
+        }
+    } else {
+        var length = Neo.CopyTip.toolStrings.length;
+        if (e.button == 2 || e.ctrlKey || e.altKey) {
+            this.mode--;
+            if (this.mode < 0) this.mode = length - 1;
+        } else {
+            this.mode++;
+            if (this.mode >= length) this.mode = 0;
+        }
+    }
+    Neo.painter.setToolByType(Neo.CopyTip.tools[this.mode]);
+    this.update();
+
+    if (this.onmousedown) this.onmousedown(this);
+};
+
+
+Neo.CopyTip.prototype.update = function() {
+    this.label.innerHTML = Neo.CopyTip.toolStrings[this.mode];
+};
+
+Neo.CopyTip.prototype.draw = function() {
 };
 
 /*

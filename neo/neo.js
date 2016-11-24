@@ -1,8 +1,12 @@
 'use strict';
 
+document.addEventListener("DOMContentLoaded", function() {
+    Neo.init();
+});
+
 var Neo = function() {};
 
-Neo.version = "0.4.0";
+Neo.version = "0.4.5";
 
 Neo.painter;
 Neo.fullScreen = false;
@@ -29,23 +33,26 @@ Neo.SLIDERTYPE_BLUE = 3;
 Neo.SLIDERTYPE_ALPHA = 4;
 Neo.SLIDERTYPE_SIZE = 5;
 
+document.neo = Neo;
 
 Neo.init = function() {
-    sssl(["assets/jquery-1.4.2.min.js",
-          "assets/painter.js",
-          "assets/tools.js",
-          "assets/commands.js",
-          "assets/widgets.js"], function() { Neo.init2(); });
+    var applets = document.getElementsByTagName('applet');
+    for (var i = 0; i < applets.length; i++) {
+        var applet = applets[i];
+        var code = applet.attributes.code.value;
+        if (code == "pbbs.PaintBBS.class") {
+            Neo.applet = applet;
+            Neo.createContainer(applet);
+            Neo.initConfig(applet);
+            Neo.init2();
+        }
+    }
 };
 
 Neo.init2 = function() {
-    var pair = location.search.substring(1).split('&');
-    for (var i = 0; pair[i]; i++) {
-        var tmp = pair[i].split('=');
-        Neo.config[tmp[0]] = tmp[1];
-    }
-    Neo.config.width = parseInt(Neo.config.width);
-    Neo.config.height = parseInt(Neo.config.height);
+    var pageview = document.getElementById("pageView");
+    pageview.style.width = Neo.config.applet_width + "px";
+    pageview.style.height = Neo.config.applet_height + "px";
 
     Neo.canvas = document.getElementById("canvas");
     Neo.container = document.getElementById("container");
@@ -56,16 +63,34 @@ Neo.init2 = function() {
     Neo.canvas.oncontextmenu = function() {return false;};
 //  Neo.painter.onUpdateCanvas = null;
 
-    Neo.resizeCanvas();
+    Neo.initComponents();
+    Neo.initButtons();
 
-    initComponents();
-    initButtons();
-    Neo.container.style.visibility = "visible";
+//  // insertCSSが終わってから
+//  Neo.resizeCanvas();
+//  Neo.container.style.visibility = "visible";
 }
 
-function initComponents() {
-    var toolSet = document.getElementById("toolSet");
-    document.getElementById("tools").appendChild(toolSet);
+Neo.initConfig = function(applet) {
+    if (applet) {
+        var appletWidth = applet.attributes.width;
+        var appletHeight = applet.attributes.height;
+        if (appletWidth) Neo.config.applet_width = parseInt(appletWidth.value);
+        if (appletHeight) Neo.config.applet_height = parseInt(appletHeight.value);
+
+        var params = applet.getElementsByTagName('param');
+        for (var i = 0; i < params.length; i++) {
+            var p = params[i];
+            if (p.name == "image_width") Neo.config.width = parseInt(p.value);
+            if (p.name == "image_height") Neo.config.height = parseInt(p.value);
+            if (p.name == "url_save") Neo.config.url_save = p.value;
+            if (p.name == "url_exit") Neo.config.url_exit = p.value;
+            if (p.name == "send_header") Neo.config.send_header = p.value;
+        }
+    }
+};
+
+Neo.initComponents = function() {
     document.getElementById("copyright").innerHTML += "v" + Neo.version;
 
     //お絵描き中はアプレットのborderを選択状態にする
@@ -77,9 +102,13 @@ function initComponents() {
     document.addEventListener("mousedown", function(e) {
         container.style.borderColor = 'transparent';
     }, false);
+
+    //画面外の何もないところををクリックして描画されてしまうのをちょっと防ぐ
+    document.getElementById("toolSet")['data-ui'] = true;
+    document.getElementById("toolPad")['data-ui'] = true;
 }
 
-function initButtons() {
+Neo.initButtons = function() {
     new Neo.Button().init("undo").onmouseup = function() {
         new Neo.UndoCommand(Neo.painter).execute();
     };
@@ -107,9 +136,10 @@ function initButtons() {
     // toolTip
     Neo.penTip = new Neo.PenTip().init("pen", {type:'pen'});
     Neo.eraserTip = new Neo.EraserTip().init("eraser", {type:'eraser'});
+    Neo.copyTip = new Neo.CopyTip().init("copy", {type:'copy'});
     Neo.maskTip = new Neo.MaskTip().init("mask", {type:'mask'});
 
-    Neo.toolButtons = [Neo.fillButton, Neo.penTip, Neo.eraserTip];
+    Neo.toolButtons = [Neo.fillButton, Neo.penTip, Neo.eraserTip, Neo.copyTip];
 
     // colorTip
     for (var i = 1; i <= 14; i++) {
@@ -131,6 +161,16 @@ function initButtons() {
         "sliderSize", {type:Neo.SLIDERTYPE_SIZE});
 
     new Neo.LayerControl().init("layerControl");
+};
+
+Neo.start = function() {
+    if (Neo.applet) {
+        Neo.resizeCanvas();
+        Neo.container.style.visibility = "visible";
+
+        var ipc = require('electron').ipcRenderer;
+        ipc.sendToHost('neo-status', 'ok');
+    }
 };
 
 /*
@@ -221,7 +261,7 @@ Neo.openURL = function(url) {
 };
 
 Neo.submit = function(board, blob) {
-    var url = "http://" + board + "/paintpost.php";
+    var url = board + Neo.config.url_save;
     var header = new Blob();
 
     var headerLength = this.getSizeString(header.size);
@@ -233,86 +273,109 @@ Neo.submit = function(board, blob) {
                          '\r\n', 
                          blob], {type: 'blob'});
 
-    if (1) {
-        // xhrで直接送信する場合
-        var request = new XMLHttpRequest();
-        request.open("POST", url, true);
-        request.onload = function (e) {
-            console.log(request.response);
-
-            var exitURL = "http://" + board + "/futaba.php?mode=paintcom";
-            location.href = exitURL;
-        }
-        request.send(body);
-
-    } else {
-        // node経由で送信する場合
-        var arrayBuffer;
-        var fileReader = new FileReader();
-        fileReader.onload = function() {
-            arrayBuffer = this.result;
-            var dataView = new DataView(arrayBuffer);
-
-            var headers = { 
-                'Content-Type': 'application/octet-stream',
-                'User-Agent': 'PaintBBS/2.x'
-            };
-            var options = {
-                url: url,
-                method: 'POST',
-                headers: headers,
-                body: new Uint8Array(arrayBuffer),
-            }
-
-            var request = require('request');
-            request(options, function(error, response, body) {
-                if (body) console.log(body);
-
-                var exitURL = "http://" + board + "/futaba.php?mode=paintcom";
-                Neo.openURL(exitURL);
-            });
-        };
-        fileReader.readAsArrayBuffer(body);
+    var request = new XMLHttpRequest();
+    request.open("POST", url, true);
+    request.onload = function (e) {
+        console.log(request.response);
+        
+        var exitURL = board + Neo.config.url_exit;
+        location.href = exitURL;
     }
+    request.send(body);
 };
 
+/*
+-----------------------------------------------------------------------
+DOMツリーの作成
+-----------------------------------------------------------------------
+*/
 
-//simple, small script loader
-//https://gist.github.com/aFarkas/936413
-(function(){
-	var firstScript = document.getElementsByTagName('script')[0];
-	var scriptHead = firstScript.parentNode;
-	var re = /ded|co/;
-	var onload = 'onload';
-	var onreadystatechange = 'onreadystatechange'; 
-	var readyState = 'readyState';
-	
-	var load = function(src, fn){
-		var script = document.createElement('script');
-		script[onload] = script[onreadystatechange] = function(){
-			if(!this[readyState] || re.test(this[readyState])){
-				script[onload] = script[onreadystatechange] = null;
-				fn && fn(script);
-				script = null;
-			}
-		};
-		script.async = true;
-		script.src = src;
-		scriptHead.insertBefore(script, firstScript);
-	};
-	window.sssl = function(srces, fn){
-		if(typeof srces == 'string'){
-			load(srces, fn);
-			return;
-		}
-		var src = srces.shift();
-		load(src, function(){
-			if(srces.length){
-				window.sssl(srces, fn);
-			} else {
-				fn && fn();
-			}
-		});
-	};
-})();
+Neo.createContainer = function(applet) {
+    var neo = document.createElement("div");
+    neo.className = "NEO";
+    neo.id = "NEO";
+    neo.innerHTML = (function() {/*
+
+<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+
+<div id="pageView" style="width:450px; height:470px; margin:auto;">
+    <div id="container" style="visibility:hidden;">
+        <div id="center">
+            <div id="painterContainer">
+                <div id="painterWrapper">
+                    <div id="upper">
+                        <div id="redo">やり直し</div>
+                        <div id="undo">元に戻す</div>
+                        <div id="fill">塗り潰し</div>
+                   </div>
+                    <div id="painter">
+                        <div id="canvas">
+                            <div id="scrollH" data-ui=true></div>
+                            <div id="scrollV" data-ui=true></div>
+                            <div id="zoomPlusWrapper">
+                                <div id="zoomPlus">+</div>
+                            </div>
+                            <div id="zoomMinusWrapper">
+                                <div id="zoomMinus">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="lower">
+                    </div>
+                </div>
+                <div id="toolsWrapper">
+                    <div id="tools">
+                        <div id="toolSet">
+                            <div id="pen" class="toolTip"><div class="label">鉛筆</div></div>
+                            <div id="eraser" class="toolTip"><div class="label">消しペン</div></div>
+                            <div id="copy" class="toolTip"><div class="label">コピー</div></div>
+                            <div id="mask" class="toolTip"><div class="label">マスク</div></div>
+
+                            <div class="colorTips">
+                                <div id="color2"></div><div id="color1"></div><br>
+                                <div id="color4"></div><div id="color3"></div><br>
+                                <div id="color6"></div><div id="color5"></div><br>
+                                <div id="color8"></div><div id="color7"></div><br>
+                                <div id="color10"></div><div id="color9"></div><br>
+                                <div id="color12"></div><div id="color11"></div><br>
+                                <div id="color14"></div><div id="color13"></div>
+                            </div>
+
+                            <div id="sliderRed"></div>
+                            <div id="sliderGreen"></div>
+                            <div id="sliderBlue"></div>
+                            <div id="sliderAlpha"></div>
+                            <div id="sliderSize"></div>
+
+                            <div class="reserveControl" style="margin-top:4px; display: none;"></div>
+                            <div id="layerControl" style="margin-top:6px;"></div>
+
+                            <div id="toolPad" style="height:20px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="headerButtons">
+            <div id="window">窓</div>
+        </div>
+        <div id="footerButtons">
+            <div id="submit">投稿</div>
+            <div id="copyright">(C)しいちゃん PaintBBS NEO</div>
+        </div>
+    </div>
+</div>
+
+<div id="windowView" style="display: none;">
+</div>
+
+*/}).toString().match(/\/\*([^]*)\*\//)[1];
+
+    var parent = applet.parentNode;
+    parent.appendChild(neo);
+    parent.insertBefore(neo, applet);
+
+    applet.style.display = "none";
+//  document.getElementById("container").style.visibility = "visible";
+};
 
